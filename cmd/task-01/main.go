@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"sync"
+
+	"flag"
 )
 
 type StringWriter struct {
@@ -12,8 +14,6 @@ type StringWriter struct {
 	Writer io.Writer
 }
 
-const gorutines  = 2 
-const lines  = 500000
 
 func (s *StringWriter) WriteString(str string) (n int, err error) {
 	s.m.Lock()
@@ -21,7 +21,7 @@ func (s *StringWriter) WriteString(str string) (n int, err error) {
 	return s.Writer.Write([]byte(str))
 }
 
-func do(writer *StringWriter,id int, wg *sync.WaitGroup, ch chan struct{}) {
+func do(writer *StringWriter,id int, wg *sync.WaitGroup, ch chan struct{}, lines int) {
 	defer wg.Done()
 	for i:=0; i < lines; i++ {
 		<-ch 
@@ -34,8 +34,16 @@ func do(writer *StringWriter,id int, wg *sync.WaitGroup, ch chan struct{}) {
 
 }
 
+
 func main() {
-	file, err := os.Create("file.txt")
+	filenamePtr := flag.String("filename", "file.txt", "Название файла для записи")
+	parallelPtr := flag.Int("parallel", 2, "Количество горутин")
+	linesPtr := flag.Int("lines", 500000, "Количество строк")
+
+	flag.Parse()
+
+
+	file, err := os.Create(*filenamePtr)
 	if err != nil {
 		fmt.Println("Файл не создан")
 	}
@@ -50,9 +58,9 @@ func main() {
 
 	ch := make(chan struct{}, 1)
 
-	for i :=1; i <= gorutines; i++ {
+	for i :=1; i <= *parallelPtr; i++ {
 	wg.Add(1) 
-	go do(writer, i, &wg, ch)
+	go do(writer, i, &wg, ch, *linesPtr) 
 	} 
 
 	ch <- struct{}{}
@@ -61,5 +69,5 @@ func main() {
 	
 	close(ch)
 	
-	fmt.Println("Done!)")
+	fmt.Println("Done!)", *filenamePtr)
 }
